@@ -7,6 +7,7 @@ Execution
 =========
 
 ```
+$ . configure.sh
 $ make && sudo make install
 $ lua test/test.lua
 <s>	<s>	=>	the
