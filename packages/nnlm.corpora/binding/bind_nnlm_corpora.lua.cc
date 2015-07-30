@@ -30,7 +30,7 @@ IMPLEMENT_LUA_TABLE_BIND_SPECIALIZATION(NNLMCorpora);
   const char *filename = lua_tostring(L,1);
   LexClass *lex        = LuaTable::convertTo<LexClass*>(L,2);
   const char *unk      = lua_tostring(L,3);
-  uint32_t unk_id;
+  uint32_t unk_id=0;
   if (!lex->getWordId(unk, unk_id)) {
     LUABIND_FERROR1("Unable to locate word %s", unk);
   }

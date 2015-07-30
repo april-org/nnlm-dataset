@@ -27,7 +27,9 @@ namespace LanguageModels {
       ERROR_EXIT1(1, "Unable to open file %s\n", filename);
     }
     struct stat statbuf;
-    assert(fstat(file_descriptor,&statbuf) >= 0);
+    if (fstat(file_descriptor,&statbuf) < 0) {
+      ERROR_EXIT1(2, "Unable to compute file size for %s\n", filename);
+    }
     file_size = statbuf.st_size;
     if ((file_mmapped = (char*)mmap(NULL, file_size,
                                     PROT_READ, MAP_SHARED,

@@ -52,7 +52,7 @@ namespace LanguageModels {
     auto sentence_it = upper_bound(first_word.begin(), first_word.end(),
                                    static_cast<uint32_t>(index)) - 1u;
     int s_index = static_cast<int>(sentence_it - first_word.begin());
-    int w_index = index - static_cast<int>(*sentence_it) - offset - length;
+    int w_index = index - static_cast<int>(*sentence_it) + offset;
     return make_pair(s_index,w_index);
   }
     
@@ -68,17 +68,18 @@ namespace LanguageModels {
       (*ones)[0] = 1.0f;
       (*first_index)[0] = 0;
       (*first_index)[1] = 1;
-      if (w_pos < 0) (*indices)[0] = initial_word;
-      else if (w_pos >= static_cast<int>(corpora->getSentenceLength(sentence_word_pair.first))) (*indices)[0] = final_word;
-      else (*indices)[0] = s_it[w_pos];
+      if (w_pos < 0) (*indices)[0] = initial_word - 1;
+      else if (w_pos >= static_cast<int>(corpora->getSentenceLength(sentence_word_pair.first))) (*indices)[0] = final_word - 1;
+      else (*indices)[0] = s_it[w_pos] - 1;
       SparseMatrixFloat *mat = new SparseMatrixFloat(1,
                                                      static_cast<int>(lex_size),
                                                      ones.get(), indices.get(),
                                                      first_index.get());
       Token *tk = new TokenSparseMatrixFloat(mat);
+      if (length == 1) return tk; // FIXME: refactor this code
       (*pat)[i] = tk;
     }
-    return pat.get();
+    return pat.release();
   }
 
   Token *NNLMDataSetToken::getPatternBunch(const int *indexes,
@@ -98,18 +99,19 @@ namespace LanguageModels {
         int w_pos = sentence_word_pairs[j].second + i;
         (*ones)[j] = 1.0f;
         (*first_index)[j+1] = j+1;
-        if (w_pos < 0) (*indices)[j] = initial_word;
-        else if (w_pos >= static_cast<int>(corpora->getSentenceLength(sentence_word_pairs[j].first))) (*indices)[j] = final_word;
-        else (*indices)[j] = s_it[w_pos];
+        if (w_pos < 0) (*indices)[j] = initial_word - 1;
+        else if (w_pos >= static_cast<int>(corpora->getSentenceLength(sentence_word_pairs[j].first))) (*indices)[j] = final_word - 1;
+        else (*indices)[j] = s_it[w_pos] - 1;
       }
       SparseMatrixFloat *mat = new SparseMatrixFloat(bunch_size,
                                                      static_cast<int>(lex_size),
                                                      ones.get(), indices.get(),
                                                      first_index.get());
       Token *tk = new TokenSparseMatrixFloat(mat);
+      if (length == 1) return tk; // FIXME: refactor this code
       (*pat)[i] = tk;
     }
-    return pat.get();
+    return pat.release();
   }
 
   void NNLMDataSetToken::putPattern(int index, Token *pat) {
