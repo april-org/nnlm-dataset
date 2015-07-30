@@ -21,7 +21,10 @@ namespace LanguageModels {
     int file_descriptor;
     size_t file_size;
     char *file_mmapped;
-    april_assert((file_descriptor = open(filename, O_RDONLY)) >= 0);
+    file_descriptor = open(filename, O_RDONLY);
+    if (file_descriptor < 0) {
+      ERROR_EXIT1(1, "Unable to open file %s\n", filename);
+    }
     struct stat statbuf;
     assert(fstat(file_descriptor,&statbuf) >= 0);
     file_size = statbuf.st_size;
@@ -33,7 +36,7 @@ namespace LanguageModels {
     }
     constString input = constString(file_mmapped, file_size);
     constString line;
-    size_t i = 0;
+    unsigned int i = 0;
     char word_str[MAX_WORD_LEN + 1];
     while( (line = input.extract_line()) ) {
       constString word;
@@ -57,9 +60,25 @@ namespace LanguageModels {
   const vector<uint32_t> &NNLMCorpora::getSentence(size_t i) const {
     return sentences[i];
   }
+
+  size_t NNLMCorpora::getSentenceLength(size_t i) const {
+    return sentences[i].size();
+  }
   
   size_t NNLMCorpora::getNumberOfSentences() const {
     return sentences.size();
+  }
+
+  //////////////////////////////////////////////
+  
+  NNLMDataSetToken::NNLMDataSetToken(const size_t offset, const size_t order,
+                                     SharedPtr<NNLMCorpora> corpora) :
+    offset(offset), order(order), corpora(corpora),
+    first_word(corpora->getNumberOfSentences()+1) {
+    first_word[0] = 0;
+    for (unsigned int i=0; i<corpora->getNumberOfSentences(); ++i) {
+      first_word[i+1] = first_word[i] + corpora->getSentenceLength(i);
+    }
   }
   
 } // namespace LanguageModels
