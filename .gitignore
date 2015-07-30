@@ -3,11 +3,15 @@
 # ignores any shell script
 ##########################
 *.sh
+*.pc
 
 # Building dirs #
 #################
 *.o
 *.so
+build_*
+include
+lib
 
 # Emacs backups #
 #################

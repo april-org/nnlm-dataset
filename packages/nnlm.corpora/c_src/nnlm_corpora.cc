@@ -1,12 +1,12 @@
 #include <cerrno>
+#include <vector>
 
 #include "april-ann.h" // includes all APRIL-ANN headers
-#include "nnlm-dataset.h"
+#include "nnlm_corpora.h"
+
+using namespace std;
 
 using AprilUtils::constString;
-using AprilUtils::LuaTable;
-using AprilUtils::SharedPtr;
-using Basics::SparseMatrixFloat;
 
 #define MAX_WORD_LEN 256u
 
@@ -17,6 +17,7 @@ namespace LanguageModels {
   NNLMCorpora::NNLMCorpora(const char *filename,
                            AprilUtils::LexClass *lex,
                            const uint32_t unk_id) :
+    Referenced(),
     filename(filename), lex(lex), unk_id(unk_id) {
     int file_descriptor;
     size_t file_size;
@@ -40,7 +41,7 @@ namespace LanguageModels {
     char word_str[MAX_WORD_LEN + 1];
     while( (line = input.extract_line()) ) {
       constString word;
-      sentences.push_back( AprilUtils::vector<uint32_t>() );
+      sentences.emplace_back();
       while( (word = line.extract_token("\n\r\t ")) ) {
         strncpy(word_str, (const char *)word, word.len());
         word_str[word.len()] = '\0';
@@ -57,7 +58,7 @@ namespace LanguageModels {
   NNLMCorpora::~NNLMCorpora() {
   }
 
-  const vector<uint32_t> &NNLMCorpora::getSentence(size_t i) const {
+  const std::vector<uint32_t> &NNLMCorpora::getSentence(size_t i) const {
     return sentences[i];
   }
 
@@ -69,45 +70,16 @@ namespace LanguageModels {
     return sentences.size();
   }
 
-  //////////////////////////////////////////////
-  
-  NNLMDataSetToken::NNLMDataSetToken(const size_t offset, const size_t order,
-                                     SharedPtr<NNLMCorpora> corpora) :
-    offset(offset), order(order), corpora(corpora),
-    first_word(corpora->getNumberOfSentences()+1) {
-    first_word[0] = 0;
-    for (unsigned int i=0; i<corpora->getNumberOfSentences(); ++i) {
-      first_word[i+1] = first_word[i] + corpora->getSentenceLength(i);
+  size_t NNLMCorpora::getVocabSize() {
+    return lex->wordTblSize();
+  }
+
+  uint32_t NNLMCorpora::getWordId(const char *word) {
+    uint32_t wid=0;
+    if (!lex->getWordId(word, wid)) {
+      ERROR_EXIT1(3, "Unable to locate word %s\n", word);
     }
+    return wid;
   }
   
 } // namespace LanguageModels
-
-////////////////////////////////////////////////////////////////////////////
-
-static int get(lua_State *L) {
-  SharedPtr<MatrixFloat> m1 = new MatrixFloat(2, 10, 20);
-  SharedPtr<MatrixFloat> m2 = new MatrixFloat(2, 20, 10);
-  matFill(m1.get(), 20.0f);
-  matFill(m2.get(), 10.0f);
-  SharedPtr<MatrixFloat> m3 = new MatrixFloat(2, 10, 10);
-  matGemm(m3.get(), CblasNoTrans, CblasNoTrans,
-          1.0f, m1.get(), m2.get(), 0.0f);
-  // using LuaTable you can push APRIL-ANN objects in Lua stack (be careful, not
-  // all objects can be pushed)
-  LuaTable::pushInto(L, m3.get());
-  return 1;
-}
-
-extern "C" {
-  int luaopen_example(lua_State *L) {
-    static const luaL_Reg funcs[] = {
-      {"get", get},
-      {NULL, NULL}
-    };
-    luaL_requiref(L, "aprilann", luaopen_aprilann, 1);
-    lua_pop(L, 1);
-    luaL_newlib(L, funcs);
-    return 1;
-  }
-}
