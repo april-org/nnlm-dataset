@@ -3,7 +3,7 @@ require "nnlmutils"
 
 local dir     = arg[0]:dirname()
 local lex     = lexClass.load(io.open(dir.."/voc.398"))
-local corpora = nnlm.corpora(dir.."/sample.txt",lex.cobj,"<unk>")
+local corpora = nnlm.corpora(dir.."/sample.txt",lex)
 local in_ds,out_ds = nnlm.dataset.both{
   corpora = corpora,
   order   =  3, -- trigrams
