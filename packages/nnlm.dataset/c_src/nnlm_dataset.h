@@ -10,6 +10,14 @@
 
 namespace LanguageModels {
 
+  /**
+   * @brief Basics::DataSetToken for NNLMs training.
+   *
+   * This class behaves different depending in the paramters @c offset and @c
+   * length . When @c length=1 every pattern is a AprilUtils::SparseMatrixFloat
+   * instance. When @c length>1 every pattern is a Basics::TokenBunchVector
+   * with @c length AprilUtils::SparseMatrixFloat instances.
+   */
   class NNLMDataSetToken : public Basics::DataSetToken {
   public:
     NNLMDataSetToken(const size_t offset, const size_t length,
@@ -33,6 +41,9 @@ namespace LanguageModels {
     std::vector<uint32_t> first_word; // corpora.getNumberOfSentences() + 1
 
     std::pair<int,int> getSentenceWordPair(int index) const;
+    Basics::TokenSparseMatrixFloat *
+    buildSparseMatrixFloatToken(int i, const std::vector<std::pair<int,int> > &
+                                sentence_word_pairs) const;
   };
   
 } // namespace LanguageModels

@@ -19,8 +19,12 @@ using Basics::TokenSparseMatrixFloat;
 
 ////////////////////////////////////////////////////////////////////////////
 
+typedef std::vector<pair<int,int> > PairVector;
+
 namespace LanguageModels {
   
+  // TODO: Implement in a generic way which allow to ignore context cues,
+  // for instance, giving initial_word=0 and/or final_word=0
   NNLMDataSetToken::NNLMDataSetToken(const size_t offset, const size_t length,
                                      const uint32_t initial_word,
                                      const uint32_t final_word,
@@ -49,34 +53,48 @@ namespace LanguageModels {
   }
   
   pair<int,int> NNLMDataSetToken::getSentenceWordPair(int index) const {
+    // binary search of the sentence which contains the given pattern index
     auto sentence_it = upper_bound(first_word.begin(), first_word.end(),
                                    static_cast<uint32_t>(index)) - 1u;
+    // index of the sentence
     int s_index = static_cast<int>(sentence_it - first_word.begin());
+    // index of the word inside the sentence: it can be w_index<0 or
+    // w_index>=sentence_size, and this cases will be filled with context cues.
     int w_index = index - static_cast<int>(*sentence_it) + offset;
     return make_pair(s_index,w_index);
   }
-    
+  
+  TokenSparseMatrixFloat *NNLMDataSetToken::
+  buildSparseMatrixFloatToken(int i, const PairVector &sentence_word_pairs) const {
+    unsigned int bunch_size = sentence_word_pairs.size();
+    SharedPtr<FloatGPUMirroredMemoryBlock> ones = new FloatGPUMirroredMemoryBlock(bunch_size);
+    SharedPtr<Int32GPUMirroredMemoryBlock> indices = new Int32GPUMirroredMemoryBlock(bunch_size);
+    SharedPtr<Int32GPUMirroredMemoryBlock> first_index = new Int32GPUMirroredMemoryBlock(bunch_size+1u);
+    (*first_index)[0] = 0;
+    for (int j=0; j<static_cast<int>(bunch_size); ++j) {
+      auto s_it = corpora->getSentence(sentence_word_pairs[j].first).begin();
+      int w_pos = sentence_word_pairs[j].second + i;
+      (*ones)[j] = 1.0f;
+      (*first_index)[j+1] = j+1;
+      if (w_pos < 0) (*indices)[j] = initial_word - 1;
+      else if (w_pos >= static_cast<int>(corpora->getSentenceLength(sentence_word_pairs[j].first))) (*indices)[j] = final_word - 1;
+      else (*indices)[j] = s_it[w_pos] - 1;
+    }
+    SparseMatrixFloat *mat = new SparseMatrixFloat(bunch_size,
+                                                   static_cast<int>(lex_size),
+                                                   ones.get(), indices.get(),
+                                                   first_index.get());
+    return new TokenSparseMatrixFloat(mat);
+  }
+
   Token *NNLMDataSetToken::getPattern(int index) {
     SharedPtr<TokenBunchVector> pat = new TokenBunchVector(length);
     auto sentence_word_pair = getSentenceWordPair(index);
     auto s_it = corpora->getSentence(sentence_word_pair.first).begin();
     for (int i=0; i<static_cast<int>(length); ++i) {
-      SharedPtr<FloatGPUMirroredMemoryBlock> ones = new FloatGPUMirroredMemoryBlock(1u);
-      SharedPtr<Int32GPUMirroredMemoryBlock> indices = new Int32GPUMirroredMemoryBlock(1u);
-      SharedPtr<Int32GPUMirroredMemoryBlock> first_index = new Int32GPUMirroredMemoryBlock(2u);
-      int w_pos = sentence_word_pair.second + i;
-      (*ones)[0] = 1.0f;
-      (*first_index)[0] = 0;
-      (*first_index)[1] = 1;
-      if (w_pos < 0) (*indices)[0] = initial_word - 1;
-      else if (w_pos >= static_cast<int>(corpora->getSentenceLength(sentence_word_pair.first))) (*indices)[0] = final_word - 1;
-      else (*indices)[0] = s_it[w_pos] - 1;
-      SparseMatrixFloat *mat = new SparseMatrixFloat(1,
-                                                     static_cast<int>(lex_size),
-                                                     ones.get(), indices.get(),
-                                                     first_index.get());
-      Token *tk = new TokenSparseMatrixFloat(mat);
-      if (length == 1) return tk; // FIXME: refactor this code
+      Token *tk = buildSparseMatrixFloatToken(i, PairVector(1u, sentence_word_pair));
+      // WARNING flow break here
+      if (length == 1) return tk;
       (*pat)[i] = tk;
     }
     return pat.weakRelease();
@@ -90,25 +108,9 @@ namespace LanguageModels {
     }
     SharedPtr<TokenBunchVector> pat = new TokenBunchVector(length);    
     for (int i=0; i<static_cast<int>(length); ++i) {
-      SharedPtr<FloatGPUMirroredMemoryBlock> ones = new FloatGPUMirroredMemoryBlock(bunch_size);
-      SharedPtr<Int32GPUMirroredMemoryBlock> indices = new Int32GPUMirroredMemoryBlock(bunch_size);
-      SharedPtr<Int32GPUMirroredMemoryBlock> first_index = new Int32GPUMirroredMemoryBlock(bunch_size+1u);
-      (*first_index)[0] = 0;
-      for (int j=0; j<static_cast<int>(bunch_size); ++j) {
-        auto s_it = corpora->getSentence(sentence_word_pairs[j].first).begin();
-        int w_pos = sentence_word_pairs[j].second + i;
-        (*ones)[j] = 1.0f;
-        (*first_index)[j+1] = j+1;
-        if (w_pos < 0) (*indices)[j] = initial_word - 1;
-        else if (w_pos >= static_cast<int>(corpora->getSentenceLength(sentence_word_pairs[j].first))) (*indices)[j] = final_word - 1;
-        else (*indices)[j] = s_it[w_pos] - 1;
-      }
-      SparseMatrixFloat *mat = new SparseMatrixFloat(bunch_size,
-                                                     static_cast<int>(lex_size),
-                                                     ones.get(), indices.get(),
-                                                     first_index.get());
-      Token *tk = new TokenSparseMatrixFloat(mat);
-      if (length == 1) return tk; // FIXME: refactor this code
+      Token *tk = buildSparseMatrixFloatToken(i, sentence_word_pairs);
+      // WARNING flow break here
+      if (length == 1) return tk;
       (*pat)[i] = tk;
     }
     return pat.weakRelease();
