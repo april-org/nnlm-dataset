@@ -79,7 +79,7 @@ namespace LanguageModels {
       if (length == 1) return tk; // FIXME: refactor this code
       (*pat)[i] = tk;
     }
-    return pat.release();
+    return pat.weakRelease();
   }
 
   Token *NNLMDataSetToken::getPatternBunch(const int *indexes,
@@ -111,7 +111,7 @@ namespace LanguageModels {
       if (length == 1) return tk; // FIXME: refactor this code
       (*pat)[i] = tk;
     }
-    return pat.release();
+    return pat.weakRelease();
   }
 
   void NNLMDataSetToken::putPattern(int index, Token *pat) {
