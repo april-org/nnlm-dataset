@@ -14,14 +14,6 @@ IMPLEMENT_LUA_TABLE_BIND_SPECIALIZATION(NNLMCorpora);
 
 /////////////////////////////////////////////////////////////////////////////
 
-//BIND_STATIC_CONSTRUCTOR utils_static_constructor
-{
-  luaL_requiref(L, "aprilann", luaopen_aprilann, 1);
-}
-//BIND_END
-
-/////////////////////////////////////////////////////////////////////////////
-
 //BIND_LUACLASSNAME NNLMCorpora nnlm.corpora
 //BIND_CPP_CLASS NNLMCorpora
 
